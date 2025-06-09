@@ -4,26 +4,28 @@ import requests
 
 
 class TeltonikaClient:
-    """Client for Teltonika routers using the Ubus HTTP API.
+    """Client for Teltonika routers using the Ubus HTTPS API.
 
     The class provides basic login and command execution helpers and prints
     detailed information about each request and response so the user can see
     exactly what the router returns.
     """
 
-    def __init__(self, host: str, username: str, password: str, timeout: float = 5.0):
+    def __init__(self, host: str, username: str, password: str, timeout: float = 5.0, verify_ssl: bool = False):
         self.host = host.rstrip('/')
         self.username = username
         self.password = password
         self.timeout = timeout
         self.session = requests.Session()
+        self.verify_ssl = verify_ssl
         self.token = None
 
     def _url(self) -> str:
-        return f"http://{self.host}/ubus"
+        return f"https://{self.host}/ubus"
 
     def login(self) -> None:
-        print(f"Connecting to {self.host} as '{self.username}'...")
+        scheme = "https"
+        print(f"Connecting to {self.host} via {scheme.upper()} as '{self.username}'...")
         payload = {
             "jsonrpc": "2.0",
             "id": 1,
@@ -38,7 +40,9 @@ class TeltonikaClient:
                 },
             ],
         }
-        resp = self.session.post(self._url(), json=payload, timeout=self.timeout)
+        resp = self.session.post(
+            self._url(), json=payload, timeout=self.timeout, verify=self.verify_ssl
+        )
         print(f"Login HTTP {resp.status_code}")
         resp.raise_for_status()
         print("Raw login response:")
@@ -61,7 +65,9 @@ class TeltonikaClient:
             "method": "call",
             "params": [self.token, obj, method, params],
         }
-        resp = self.session.post(self._url(), json=payload, timeout=self.timeout)
+        resp = self.session.post(
+            self._url(), json=payload, timeout=self.timeout, verify=self.verify_ssl
+        )
         print(f"Command HTTP {resp.status_code}")
         resp.raise_for_status()
         print("Raw command response:")
@@ -77,6 +83,11 @@ def main() -> None:
     parser.add_argument("object", help="Ubus object name")
     parser.add_argument("method", help="Ubus method name")
     parser.add_argument("params", help="JSON string with parameters for the call")
+    parser.add_argument(
+        "--verify-ssl",
+        action="store_true",
+        help="Verify the router's SSL certificate",
+    )
 
     args = parser.parse_args()
 
@@ -86,7 +97,9 @@ def main() -> None:
         print("Invalid JSON for params")
         return
 
-    client = TeltonikaClient(args.host, args.username, args.password)
+    client = TeltonikaClient(
+        args.host, args.username, args.password, verify_ssl=args.verify_ssl
+    )
     try:
         client.call(args.object, args.method, params)
     except Exception as e:
