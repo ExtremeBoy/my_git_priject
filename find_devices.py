@@ -1,11 +1,33 @@
 import argparse
 import ipaddress
 import socket
-from scapy.all import ARP, Ether, srp
+from scapy.all import (
+    ARP,
+    Ether,
+    srp,
+    sr1,
+    IP,
+    UDP,
+    RandShort,
+    NBNSNodeStatusRequest,
+    NBNSNodeStatusResponse,
+)
 
 
 def get_hostname(ip):
-    """Try to resolve host name for the given IP."""
+    """Resolve host name using NetBIOS and DNS."""
+    # Try NetBIOS Node Status request first
+    try:
+        pkt = IP(dst=ip) / UDP(sport=RandShort(), dport=137) / NBNSNodeStatusRequest()
+        ans = sr1(pkt, timeout=1, verbose=False)
+        if ans and ans.haslayer(NBNSNodeStatusResponse):
+            for service in ans.getlayer(NBNSNodeStatusResponse).NODE_NAME:
+                if getattr(service, "SUFFIX", "") == "workstation":
+                    return service.NETBIOS_NAME.decode("ascii").strip()
+    except Exception:
+        pass
+
+    # Fallback to reverse DNS
     try:
         name, _, _ = socket.gethostbyaddr(ip)
         return name
