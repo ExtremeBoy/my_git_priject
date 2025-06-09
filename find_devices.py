@@ -1,6 +1,16 @@
 import argparse
 import ipaddress
+import socket
 from scapy.all import ARP, Ether, srp
+
+
+def get_hostname(ip):
+    """Try to resolve host name for the given IP."""
+    try:
+        name, _, _ = socket.gethostbyaddr(ip)
+        return name
+    except (socket.herror, socket.gaierror):
+        return ""
 
 
 def scan_network(network, mac_prefix):
@@ -20,7 +30,8 @@ def scan_network(network, mac_prefix):
     results = []
     for _sent, received in answered:
         if received.hwsrc.lower().startswith(mac_prefix.lower()):
-            results.append((received.psrc, received.hwsrc))
+            hostname = get_hostname(received.psrc)
+            results.append((received.psrc, received.hwsrc, hostname))
     return results
 
 
@@ -36,8 +47,11 @@ def main():
         print("No devices found")
     else:
         print("Found devices:")
-        for ip, mac in devices:
-            print(f"{ip} - {mac}")
+        for ip, mac, hostname in devices:
+            if hostname:
+                print(f"{ip} - {mac} - {hostname}")
+            else:
+                print(f"{ip} - {mac}")
 
 
 if __name__ == "__main__":

@@ -12,8 +12,11 @@ def start_scan(network, prefix, output_widget, button):
         if not results:
             output_widget.insert(tk.END, "No devices found\n")
         else:
-            for ip, mac in results:
-                output_widget.insert(tk.END, f"{ip} - {mac}\n")
+            for ip, mac, hostname in results:
+                if hostname:
+                    output_widget.insert(tk.END, f"{ip} - {mac} - {hostname}\n")
+                else:
+                    output_widget.insert(tk.END, f"{ip} - {mac}\n")
         button.config(state='normal')
 
     threading.Thread(target=task, daemon=True).start()
