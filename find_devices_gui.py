@@ -13,10 +13,9 @@ def start_scan(network, prefix, output_widget, button):
             output_widget.insert(tk.END, "No devices found\n")
         else:
             for ip, mac, hostname in results:
-                if hostname:
-                    output_widget.insert(tk.END, f"{ip} - {mac} - {hostname}\n")
-                else:
-                    output_widget.insert(tk.END, f"{ip} - {mac}\n")
+                if not hostname:
+                    hostname = "unknown"
+                output_widget.insert(tk.END, f"{ip} - {mac} - {hostname}\n")
         button.config(state='normal')
 
     threading.Thread(target=task, daemon=True).start()

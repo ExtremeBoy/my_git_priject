@@ -48,10 +48,9 @@ def main():
     else:
         print("Found devices:")
         for ip, mac, hostname in devices:
-            if hostname:
-                print(f"{ip} - {mac} - {hostname}")
-            else:
-                print(f"{ip} - {mac}")
+            if not hostname:
+                hostname = "unknown"
+            print(f"{ip} - {mac} - {hostname}")
 
 
 if __name__ == "__main__":
