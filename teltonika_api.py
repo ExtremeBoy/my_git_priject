@@ -4,7 +4,12 @@ import requests
 
 
 class TeltonikaClient:
-    """Simple client for Teltonika routers using ubus HTTP API."""
+    """Client for Teltonika routers using the Ubus HTTP API.
+
+    The class provides basic login and command execution helpers and prints
+    detailed information about each request and response so the user can see
+    exactly what the router returns.
+    """
 
     def __init__(self, host: str, username: str, password: str, timeout: float = 5.0):
         self.host = host.rstrip('/')
@@ -18,6 +23,7 @@ class TeltonikaClient:
         return f"http://{self.host}/ubus"
 
     def login(self) -> None:
+        print(f"Connecting to {self.host} as '{self.username}'...")
         payload = {
             "jsonrpc": "2.0",
             "id": 1,
@@ -33,15 +39,22 @@ class TeltonikaClient:
             ],
         }
         resp = self.session.post(self._url(), json=payload, timeout=self.timeout)
+        print(f"Login HTTP {resp.status_code}")
         resp.raise_for_status()
+        print("Raw login response:")
+        print(resp.text)
         data = resp.json()
         self.token = data.get("result", [None, {}])[1].get("ubus_rpc_session")
         if not self.token:
             raise RuntimeError("Failed to obtain session token")
+        print("Session token obtained")
 
-    def call(self, obj: str, method: str, params: dict) -> dict:
+    def call(self, obj: str, method: str, params: dict) -> str:
         if not self.token:
             self.login()
+        print(
+            f"Sending command: object='{obj}', method='{method}', params={json.dumps(params)}"
+        )
         payload = {
             "jsonrpc": "2.0",
             "id": 1,
@@ -49,8 +62,11 @@ class TeltonikaClient:
             "params": [self.token, obj, method, params],
         }
         resp = self.session.post(self._url(), json=payload, timeout=self.timeout)
+        print(f"Command HTTP {resp.status_code}")
         resp.raise_for_status()
-        return resp.json()
+        print("Raw command response:")
+        print(resp.text)
+        return resp.text
 
 
 def main() -> None:
@@ -72,8 +88,7 @@ def main() -> None:
 
     client = TeltonikaClient(args.host, args.username, args.password)
     try:
-        response = client.call(args.object, args.method, params)
-        print(json.dumps(response, indent=2))
+        client.call(args.object, args.method, params)
     except Exception as e:
         print(f"Error: {e}")
 

@@ -36,15 +36,41 @@ python find_devices_gui.py
 
 ## Teltonika API Client
 
-Файл `teltonika_api.py` представляет собой простую утилиту для отправки JSON-RPC
-запросов к устройствам Teltonika (RUT/ТRB и т.д.). Необходимо указать адрес
-устройства, имя пользователя, пароль, а также объект, метод и параметры
-`ubus`-вызова.
+`teltonika_api.py` — это небольшая утилита командной строки для отправки
+`ubus`-запросов к роутерам Teltonika. Скрипт сначала выполняет вход, затем
+отправляет произвольный метод и выводит **сырое** содержимое ответов от
+устройства.
 
-Пример использования:
+Запуск осуществляется так:
+
+```bash
+python teltonika_api.py <host> <user> <pass> <object> <method> '<params>'
+```
+
+Аргументы:
+
+- `host` – IP-адрес или имя роутера;
+- `user` и `pass` – учётные данные;
+- `object`/`method` – имя объекта и метода `ubus`;
+- `params` – строка с JSON-параметрами (например `"{}"`, если параметров нет).
+
+Пример запроса статуса сетевого интерфейса:
 
 ```bash
 python teltonika_api.py 192.168.1.1 admin admin network.interface status "{}"
 ```
 
-Утилита выполнит указанный запрос и выведет ответ в формате JSON.
+После выполнения будут напечатаны диагностические сообщения и
+необработанный JSON-ответ роутера. Типичный вывод выглядит так:
+
+```
+Connecting to 192.168.1.1 as 'admin'...
+Login HTTP 200
+Raw login response:
+{"jsonrpc":"2.0","id":1,"result":[0,{"ubus_rpc_session":"..."}]}
+Session token obtained
+Sending command: object='network.interface', method='status', params={}
+Command HTTP 200
+Raw command response:
+{"jsonrpc":"2.0","id":1,"result":[0,{...}]}
+```
