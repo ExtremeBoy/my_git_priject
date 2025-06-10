@@ -4,11 +4,24 @@ import json
 import requests
 
 
-def send_request(host, username, password, method, path, payload, raw_output, readable_output):
+def send_request(
+    host,
+    username,
+    password,
+    method,
+    path,
+    payload,
+    use_https,
+    verify_ssl,
+    raw_output,
+    readable_output,
+):
     """Send request to the router either via plain HTTP or UBUS call."""
     try:
+        scheme = "https" if use_https else "http"
         if method.upper() == "UBUS":
             session = requests.Session()
+            session.verify = verify_ssl
             login_payload = {
                 "jsonrpc": "2.0",
                 "id": 1,
@@ -20,7 +33,11 @@ def send_request(host, username, password, method, path, payload, raw_output, re
                     {"username": username, "password": password},
                 ],
             }
-            login_resp = session.post(f"http://{host}/ubus", json=login_payload, timeout=5)
+            login_resp = session.post(
+                f"{scheme}://{host}/ubus",
+                json=login_payload,
+                timeout=5,
+            )
             login_resp.raise_for_status()
             token = login_resp.json().get("result", [None, {}])[1].get("ubus_rpc_session")
             if not token:
@@ -38,31 +55,38 @@ def send_request(host, username, password, method, path, payload, raw_output, re
                 "method": "call",
                 "params": [token, obj, ubus_method, params],
             }
-            response = session.post(f"http://{host}/ubus", json=call_payload, timeout=5)
+            response = session.post(
+                f"{scheme}://{host}/ubus",
+                json=call_payload,
+                timeout=5,
+            )
         else:
-            url = f"http://{host.rstrip('/')}/{path.lstrip('/')}"
+            url = f"{scheme}://{host.rstrip('/')}/{path.lstrip('/')}"
+            req_kwargs = {
+                "auth": (username, password),
+                "timeout": 5,
+                "verify": verify_ssl,
+            }
             if method.upper() == "GET":
-                response = requests.get(url, auth=(username, password), timeout=5)
+                response = requests.get(url, **req_kwargs)
             elif method.upper() == "POST":
                 data = payload.encode("utf-8") if payload else None
                 response = requests.post(
                     url,
                     data=data,
-                    auth=(username, password),
                     headers={"Content-Type": "application/json"} if payload else None,
-                    timeout=5,
+                    **req_kwargs,
                 )
             elif method.upper() == "PUT":
                 data = payload.encode("utf-8") if payload else None
                 response = requests.put(
                     url,
                     data=data,
-                    auth=(username, password),
                     headers={"Content-Type": "application/json"} if payload else None,
-                    timeout=5,
+                    **req_kwargs,
                 )
             elif method.upper() == "DELETE":
-                response = requests.delete(url, auth=(username, password), timeout=5)
+                response = requests.delete(url, **req_kwargs)
             else:
                 raw_output.delete(1.0, tk.END)
                 readable_output.delete(1.0, tk.END)
@@ -91,6 +115,10 @@ def main():
     tk.Label(root, text="IP address:").grid(row=0, column=0, sticky="e")
     host_var = tk.StringVar(value="192.168.1.1")
     tk.Entry(root, textvariable=host_var, width=20).grid(row=0, column=1)
+    https_var = tk.BooleanVar(value=False)
+    tk.Checkbutton(root, text="HTTPS", variable=https_var).grid(row=0, column=2, padx=5)
+    verify_var = tk.BooleanVar(value=True)
+    tk.Checkbutton(root, text="Verify SSL", variable=verify_var).grid(row=0, column=3, padx=5)
 
     tk.Label(root, text="Username:").grid(row=1, column=0, sticky="e")
     user_var = tk.StringVar(value="admin")
@@ -131,6 +159,8 @@ def main():
             method_var.get(),
             path_var.get(),
             payload_text.get(1.0, tk.END).strip(),
+            https_var.get(),
+            verify_var.get(),
             raw_output,
             readable_output,
         ),

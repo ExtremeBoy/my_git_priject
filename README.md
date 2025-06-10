@@ -47,6 +47,12 @@ python find_devices_gui.py
 python teltonika_api.py 192.168.1.1 admin admin network.interface status "{}"
 ```
 
+При необходимости можно использовать HTTPS и отключить проверку сертификата:
+
+```bash
+python teltonika_api.py 192.168.1.1 admin admin network.interface status "{}" --https --no-verify
+```
+
 Утилита выполнит указанный запрос и выведет ответ в формате JSON.
 
 ## Teltonika API GUI
@@ -60,6 +66,8 @@ python teltonika_api_gui.py
 PUT, DELETE) и специальный режим **UBUS** для JSON-RPC вызовов по
 примеру Teltonika. В режиме UBUS путь нужно указывать как
 `object/method`, а поле нагрузки содержит JSON-параметры вызова.
+При необходимости можно переключиться на HTTPS и отключить проверку
+сертификата (соответствующие галочки в окне).
 Ответы отображаются в двух полях: одно с исходным текстом, другое с
 удобочитаемым форматированием (для JSON). Приложение написано на
 `tkinter` и может быть запущено под Windows.
