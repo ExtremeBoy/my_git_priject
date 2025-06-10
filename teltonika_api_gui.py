@@ -5,35 +5,69 @@ import requests
 
 
 def send_request(host, username, password, method, path, payload, raw_output, readable_output):
-    url = f"http://{host.rstrip('/')}/{path.lstrip('/')}"
+    """Send request to the router either via plain HTTP or UBUS call."""
     try:
-        if method.upper() == "GET":
-            response = requests.get(url, auth=(username, password), timeout=5)
-        elif method.upper() == "POST":
-            data = payload.encode('utf-8') if payload else None
-            response = requests.post(
-                url,
-                data=data,
-                auth=(username, password),
-                headers={'Content-Type': 'application/json'} if payload else None,
-                timeout=5,
-            )
-        elif method.upper() == "PUT":
-            data = payload.encode('utf-8') if payload else None
-            response = requests.put(
-                url,
-                data=data,
-                auth=(username, password),
-                headers={'Content-Type': 'application/json'} if payload else None,
-                timeout=5,
-            )
-        elif method.upper() == "DELETE":
-            response = requests.delete(url, auth=(username, password), timeout=5)
+        if method.upper() == "UBUS":
+            session = requests.Session()
+            login_payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "call",
+                "params": [
+                    "00000000000000000000000000000000",
+                    "session",
+                    "login",
+                    {"username": username, "password": password},
+                ],
+            }
+            login_resp = session.post(f"http://{host}/ubus", json=login_payload, timeout=5)
+            login_resp.raise_for_status()
+            token = login_resp.json().get("result", [None, {}])[1].get("ubus_rpc_session")
+            if not token:
+                raise RuntimeError("Failed to obtain session token")
+
+            try:
+                obj, ubus_method = path.strip("/").split("/", 1)
+            except ValueError:
+                raise ValueError("Path for UBUS must be in 'object/method' format")
+
+            params = json.loads(payload) if payload else {}
+            call_payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "call",
+                "params": [token, obj, ubus_method, params],
+            }
+            response = session.post(f"http://{host}/ubus", json=call_payload, timeout=5)
         else:
-            raw_output.delete(1.0, tk.END)
-            readable_output.delete(1.0, tk.END)
-            raw_output.insert(tk.END, f"Unsupported method: {method}")
-            return
+            url = f"http://{host.rstrip('/')}/{path.lstrip('/')}"
+            if method.upper() == "GET":
+                response = requests.get(url, auth=(username, password), timeout=5)
+            elif method.upper() == "POST":
+                data = payload.encode("utf-8") if payload else None
+                response = requests.post(
+                    url,
+                    data=data,
+                    auth=(username, password),
+                    headers={"Content-Type": "application/json"} if payload else None,
+                    timeout=5,
+                )
+            elif method.upper() == "PUT":
+                data = payload.encode("utf-8") if payload else None
+                response = requests.put(
+                    url,
+                    data=data,
+                    auth=(username, password),
+                    headers={"Content-Type": "application/json"} if payload else None,
+                    timeout=5,
+                )
+            elif method.upper() == "DELETE":
+                response = requests.delete(url, auth=(username, password), timeout=5)
+            else:
+                raw_output.delete(1.0, tk.END)
+                readable_output.delete(1.0, tk.END)
+                raw_output.insert(tk.END, f"Unsupported method: {method}")
+                return
 
         raw_output.delete(1.0, tk.END)
         readable_output.delete(1.0, tk.END)
@@ -67,8 +101,8 @@ def main():
     tk.Entry(root, textvariable=pass_var, show="*", width=20).grid(row=2, column=1)
 
     tk.Label(root, text="Method:").grid(row=3, column=0, sticky="e")
-    method_var = tk.StringVar(value="GET")
-    method_combo = ttk.Combobox(root, textvariable=method_var, values=["GET", "POST", "PUT", "DELETE"], width=17)
+    method_var = tk.StringVar(value="UBUS")
+    method_combo = ttk.Combobox(root, textvariable=method_var, values=["UBUS", "GET", "POST", "PUT", "DELETE"], width=17)
     method_combo.grid(row=3, column=1)
 
     tk.Label(root, text="Path:").grid(row=4, column=0, sticky="e")
