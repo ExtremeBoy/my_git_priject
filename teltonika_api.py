@@ -6,16 +6,26 @@ import requests
 class TeltonikaClient:
     """Simple client for Teltonika routers using ubus HTTP API."""
 
-    def __init__(self, host: str, username: str, password: str, timeout: float = 5.0):
+    def __init__(
+        self,
+        host: str,
+        username: str,
+        password: str,
+        timeout: float = 5.0,
+        use_https: bool = False,
+        verify_ssl: bool = True,
+    ):
         self.host = host.rstrip('/')
         self.username = username
         self.password = password
         self.timeout = timeout
         self.session = requests.Session()
+        self.session.verify = verify_ssl
+        self.scheme = "https" if use_https else "http"
         self.token = None
 
     def _url(self) -> str:
-        return f"http://{self.host}/ubus"
+        return f"{self.scheme}://{self.host}/ubus"
 
     def login(self) -> None:
         payload = {
@@ -61,6 +71,12 @@ def main() -> None:
     parser.add_argument("object", help="Ubus object name")
     parser.add_argument("method", help="Ubus method name")
     parser.add_argument("params", help="JSON string with parameters for the call")
+    parser.add_argument("--https", action="store_true", help="Use HTTPS")
+    parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Disable SSL certificate verification",
+    )
 
     args = parser.parse_args()
 
@@ -70,7 +86,13 @@ def main() -> None:
         print("Invalid JSON for params")
         return
 
-    client = TeltonikaClient(args.host, args.username, args.password)
+    client = TeltonikaClient(
+        args.host,
+        args.username,
+        args.password,
+        use_https=args.https,
+        verify_ssl=not args.no_verify,
+    )
     try:
         response = client.call(args.object, args.method, params)
         print(json.dumps(response, indent=2))
