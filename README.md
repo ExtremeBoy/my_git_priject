@@ -36,15 +36,41 @@ python find_devices_gui.py
 
 ## Teltonika API Client
 
-Файл `teltonika_api.py` представляет собой простую утилиту для отправки JSON-RPC
-запросов к устройствам Teltonika (RUT/ТRB и т.д.). Необходимо указать адрес
-устройства, имя пользователя, пароль, а также объект, метод и параметры
-`ubus`-вызова.
+Файл `teltonika_api.py` реализует работу с HTTP API роутеров Teltonika. Сначала
+производится авторизация запросом `POST /api/login`, после чего полученный токен
+используется в заголовке `Authorization` для всех последующих обращений.
 
-Пример использования:
+Пример чтения конфигурации:
 
 ```bash
-python teltonika_api.py 192.168.1.1 admin admin network.interface status "{}"
+python teltonika_api.py 192.168.1.1 admin admin GET /wireguard/config
 ```
 
-Утилита выполнит указанный запрос и выведет ответ в формате JSON.
+Для `POST` и `PUT` запросов можно передать данные через `--data`:
+
+```bash
+python teltonika_api.py 192.168.1.1 admin admin POST /wireguard/config --data '{"data": {"id": "example"}}'
+```
+
+При необходимости можно использовать HTTPS и отключить проверку сертификата:
+
+```bash
+python teltonika_api.py 192.168.1.1 admin admin GET /wireguard/config --https --no-verify
+```
+
+Ответ выводится как текст или JSON.
+
+## Teltonika API GUI
+
+```bash
+python teltonika_api_gui.py
+```
+
+Откроет окно, в котором можно указать IP‑адрес, логин и пароль. Сначала
+нужно нажать кнопку **Login** для получения токена. После успешной
+авторизации становятся доступны запросы (GET, POST, PUT, DELETE) к
+эндпоинтам API. Поле "Payload" принимает JSON‑строку для POST/PUT.
+При необходимости можно использовать HTTPS и отключить проверку
+сертификата (соответствующие галочки в окне). Ответы выводятся в двух
+полях: исходный текст и форматированное представление. Приложение
+написано на `tkinter` и может быть запущено под Windows.
