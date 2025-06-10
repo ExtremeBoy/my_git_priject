@@ -4,111 +4,47 @@ import json
 import requests
 
 
-def send_request(
-    host,
-    username,
-    password,
-    method,
-    path,
-    payload,
-    use_https,
-    verify_ssl,
-    raw_output,
-    readable_output,
-):
-    """Send request to the router either via plain HTTP or UBUS call."""
-    try:
+class ApiSession:
+    def __init__(self):
+        self.token = None
+
+    def login(self, host, username, password, use_https, verify_ssl, raw_out, readable_out):
         scheme = "https" if use_https else "http"
-        if method.upper() == "UBUS":
-            session = requests.Session()
-            session.verify = verify_ssl
-            login_payload = {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "call",
-                "params": [
-                    "00000000000000000000000000000000",
-                    "session",
-                    "login",
-                    {"username": username, "password": password},
-                ],
-            }
-            login_resp = session.post(
-                f"{scheme}://{host}/ubus",
-                json=login_payload,
-                timeout=5,
-            )
-            login_resp.raise_for_status()
-            token = login_resp.json().get("result", [None, {}])[1].get("ubus_rpc_session")
-            if not token:
-                raise RuntimeError("Failed to obtain session token")
-
-            try:
-                obj, ubus_method = path.strip("/").split("/", 1)
-            except ValueError:
-                raise ValueError("Path for UBUS must be in 'object/method' format")
-
-            params = json.loads(payload) if payload else {}
-            call_payload = {
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "call",
-                "params": [token, obj, ubus_method, params],
-            }
-            response = session.post(
-                f"{scheme}://{host}/ubus",
-                json=call_payload,
-                timeout=5,
-            )
-        else:
-            url = f"{scheme}://{host.rstrip('/')}/{path.lstrip('/')}"
-            req_kwargs = {
-                "auth": (username, password),
-                "timeout": 5,
-                "verify": verify_ssl,
-            }
-            if method.upper() == "GET":
-                response = requests.get(url, **req_kwargs)
-            elif method.upper() == "POST":
-                data = payload.encode("utf-8") if payload else None
-                response = requests.post(
-                    url,
-                    data=data,
-                    headers={"Content-Type": "application/json"} if payload else None,
-                    **req_kwargs,
-                )
-            elif method.upper() == "PUT":
-                data = payload.encode("utf-8") if payload else None
-                response = requests.put(
-                    url,
-                    data=data,
-                    headers={"Content-Type": "application/json"} if payload else None,
-                    **req_kwargs,
-                )
-            elif method.upper() == "DELETE":
-                response = requests.delete(url, **req_kwargs)
-            else:
-                raw_output.delete(1.0, tk.END)
-                readable_output.delete(1.0, tk.END)
-                raw_output.insert(tk.END, f"Unsupported method: {method}")
-                return
-
-        raw_output.delete(1.0, tk.END)
-        readable_output.delete(1.0, tk.END)
-        raw_output.insert(tk.END, response.text)
-
         try:
-            parsed = response.json()
-            readable_output.insert(tk.END, json.dumps(parsed, indent=2, ensure_ascii=False))
-        except ValueError:
-            readable_output.insert(tk.END, response.text)
-    except Exception as e:
-        raw_output.delete(1.0, tk.END)
-        readable_output.delete(1.0, tk.END)
-        raw_output.insert(tk.END, str(e))
+            resp = requests.post(
+                f"{scheme}://{host.rstrip('/')}/api/login",
+                json={"username": username, "password": password},
+                timeout=5,
+                verify=verify_ssl,
+            )
+            resp.raise_for_status()
+            self.token = resp.json().get("data", {}).get("token")
+            if not self.token:
+                raise RuntimeError("No token in response")
+            raw_out.delete(1.0, tk.END)
+            readable_out.delete(1.0, tk.END)
+            readable_out.insert(tk.END, "Login successful")
+        except Exception as e:
+            self.token = None
+            raw_out.delete(1.0, tk.END)
+            readable_out.delete(1.0, tk.END)
+            raw_out.insert(tk.END, str(e))
+
+    def request(self, host, method, path, payload, use_https, verify_ssl):
+        if not self.token:
+            raise RuntimeError("Not authenticated")
+        scheme = "https" if use_https else "http"
+        url = f"{scheme}://{host.rstrip('/')}/api/{path.lstrip('/')}"
+        headers = {"Authorization": f"Bearer {self.token}"}
+        data = json.loads(payload) if payload else None
+        response = requests.request(method, url, headers=headers, json=data, timeout=5, verify=verify_ssl)
+        response.raise_for_status()
+        return response
 
 
 def main():
+    session = ApiSession()
+
     root = tk.Tk()
     root.title("Teltonika API Client")
 
@@ -129,8 +65,8 @@ def main():
     tk.Entry(root, textvariable=pass_var, show="*", width=20).grid(row=2, column=1)
 
     tk.Label(root, text="Method:").grid(row=3, column=0, sticky="e")
-    method_var = tk.StringVar(value="UBUS")
-    method_combo = ttk.Combobox(root, textvariable=method_var, values=["UBUS", "GET", "POST", "PUT", "DELETE"], width=17)
+    method_var = tk.StringVar(value="GET")
+    method_combo = ttk.Combobox(root, textvariable=method_var, values=["GET", "POST", "PUT", "DELETE"], width=17)
     method_combo.grid(row=3, column=1)
 
     tk.Label(root, text="Path:").grid(row=4, column=0, sticky="e")
@@ -149,23 +85,42 @@ def main():
     readable_output = scrolledtext.ScrolledText(root, width=60, height=10)
     readable_output.grid(row=7, column=1, padx=5, pady=5)
 
-    send_btn = ttk.Button(
-        root,
-        text="Send",
-        command=lambda: send_request(
+    def login_cmd():
+        session.login(
             host_var.get(),
             user_var.get(),
             pass_var.get(),
-            method_var.get(),
-            path_var.get(),
-            payload_text.get(1.0, tk.END).strip(),
             https_var.get(),
             verify_var.get(),
             raw_output,
             readable_output,
-        ),
-    )
-    send_btn.grid(row=8, column=0, columnspan=2, pady=5)
+        )
+
+    def send_cmd():
+        try:
+            resp = session.request(
+                host_var.get(),
+                method_var.get(),
+                path_var.get(),
+                payload_text.get(1.0, tk.END).strip(),
+                https_var.get(),
+                verify_var.get(),
+            )
+            raw_output.delete(1.0, tk.END)
+            readable_output.delete(1.0, tk.END)
+            raw_output.insert(tk.END, resp.text)
+            try:
+                parsed = resp.json()
+                readable_output.insert(tk.END, json.dumps(parsed, indent=2, ensure_ascii=False))
+            except ValueError:
+                readable_output.insert(tk.END, resp.text)
+        except Exception as e:
+            raw_output.delete(1.0, tk.END)
+            readable_output.delete(1.0, tk.END)
+            raw_output.insert(tk.END, str(e))
+
+    ttk.Button(root, text="Login", command=login_cmd).grid(row=8, column=0, pady=5)
+    ttk.Button(root, text="Send", command=send_cmd).grid(row=8, column=1, pady=5)
 
     root.mainloop()
 
