@@ -145,9 +145,33 @@ def main():
 
     load_history()
 
+    def apply_highlight(widget: tk.Text, text: str) -> None:
+        widget.delete(1.0, tk.END)
+        widget.insert(tk.END, text)
+        for tag in ("string", "number", "bool"):
+            widget.tag_remove(tag, "1.0", tk.END)
+        if not highlight_var.get():
+            return
+        widget.tag_config("string", foreground="darkgreen")
+        widget.tag_config("number", foreground="blue")
+        widget.tag_config("bool", foreground="purple")
+
+        def idx(pos: int) -> str:
+            line = text.count("\n", 0, pos) + 1
+            col = pos - text.rfind("\n", 0, pos) - 1
+            return f"{line}.{col}"
+
+        for m in re.finditer(r'"(\\.|[^"\\])*"', text):
+            widget.tag_add("string", idx(m.start()), idx(m.end()))
+        for m in re.finditer(r'(?<![\w])(?:-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)', text):
+            widget.tag_add("number", idx(m.start()), idx(m.end()))
+        for m in re.finditer(r'\b(?:true|false|null)\b', text):
+            widget.tag_add("bool", idx(m.start()), idx(m.end()))
+
     login_frame = ttk.LabelFrame(root, text="Login")
     login_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
     login_frame.columnconfigure(1, weight=1)
+    login_frame.columnconfigure(2, weight=1)
 
     tk.Label(login_frame, text="IP address:").grid(row=0, column=0, sticky="e")
     host_var = tk.StringVar(value="192.168.1.1")
@@ -164,19 +188,33 @@ def main():
 
     tk.Label(login_frame, text="Password:").grid(row=2, column=0, sticky="e")
     pass_var = tk.StringVar()
-    tk.Entry(login_frame, textvariable=pass_var, show="*", width=20).grid(
-        row=2, column=1, sticky="ew", padx=(0, 5)
+    pass_entry = tk.Entry(login_frame, textvariable=pass_var, show="*", width=20)
+    pass_entry.grid(row=2, column=1, sticky="ew", padx=(0, 5))
+    show_pass_var = tk.BooleanVar(value=False)
+    def _toggle_pw():
+        pass_entry.configure(show="" if show_pass_var.get() else "*")
+    tk.Checkbutton(
+        login_frame,
+        text="Show password",
+        variable=show_pass_var,
+        command=_toggle_pw,
+    ).grid(row=2, column=2, sticky="w")
+
+    token_var = tk.StringVar()
+    tk.Label(login_frame, text="Token:").grid(row=3, column=0, sticky="e")
+    tk.Entry(login_frame, textvariable=token_var, state="readonly").grid(
+        row=3, column=1, columnspan=2, sticky="ew", padx=(0, 5)
     )
 
     login_btn = ttk.Button(login_frame, text="Login")
-    login_btn.grid(row=0, column=2, rowspan=3, padx=5, pady=5, sticky="ns")
+    login_btn.grid(row=0, column=3, rowspan=4, padx=5, pady=5, sticky="ns")
 
     request_frame = ttk.LabelFrame(root, text="Request")
     request_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
     request_frame.columnconfigure(1, weight=1)
     request_frame.rowconfigure(2, weight=1)
     request_frame.rowconfigure(3, weight=1)
-    request_frame.rowconfigure(4, weight=1)
+    request_frame.rowconfigure(4, weight=3)
 
     tk.Label(request_frame, text="Method:").grid(row=0, column=0, sticky="e")
     method_var = tk.StringVar(value="GET")
@@ -203,20 +241,29 @@ def main():
 
     https_var = tk.BooleanVar(value=False)
     verify_var = tk.BooleanVar(value=True)
+    highlight_var = tk.BooleanVar(value=True)
 
     tk.Label(request_frame, text="Raw response:").grid(row=3, column=0, sticky="nw")
-    raw_output = scrolledtext.ScrolledText(request_frame, width=60, height=10)
+    raw_output = scrolledtext.ScrolledText(request_frame, width=60, height=5)
     raw_output.grid(row=3, column=1, padx=5, pady=5, sticky="nsew")
 
     tk.Label(request_frame, text="Readable response:").grid(
         row=4, column=0, sticky="nw"
     )
-    readable_output = scrolledtext.ScrolledText(request_frame, width=60, height=10)
+    readable_output = scrolledtext.ScrolledText(request_frame, width=60, height=15)
     readable_output.grid(row=4, column=1, padx=5, pady=5, sticky="nsew")
 
     def login_cmd():
+        ip = host_var.get().strip()
+        if not re.match(r"^(?:\d{1,3}\.){3}\d{1,3}$", ip) or any(
+            int(part) > 255 for part in ip.split(".")
+        ):
+            raw_output.delete(1.0, tk.END)
+            readable_output.delete(1.0, tk.END)
+            raw_output.insert(tk.END, "Invalid IPv4 address")
+            return
         session.login(
-            host_var.get(),
+            ip,
             user_var.get(),
             pass_var.get(),
             https_var.get(),
@@ -225,7 +272,8 @@ def main():
             readable_output,
         )
         verify_var.set(session.verify_ssl)
-        update_history(host_history, host_var.get(), host_combo)
+        token_var.set(session.token or "")
+        update_history(host_history, ip, host_combo)
 
     login_btn.configure(command=login_cmd)
 
@@ -242,16 +290,16 @@ def main():
             update_history(host_history, host_var.get(), host_combo)
             update_history(path_history, path_var.get(), path_combo)
             raw_output.delete(1.0, tk.END)
-            readable_output.delete(1.0, tk.END)
             raw_output.insert(tk.END, resp.text)
             try:
                 parsed = resp.json()
-                readable_output.insert(tk.END, json.dumps(parsed, indent=2, ensure_ascii=False))
+                formatted = json.dumps(parsed, indent=2, ensure_ascii=False)
+                apply_highlight(readable_output, formatted)
             except ValueError:
-                readable_output.insert(tk.END, resp.text)
+                apply_highlight(readable_output, resp.text)
         except Exception as e:
             raw_output.delete(1.0, tk.END)
-            readable_output.delete(1.0, tk.END)
+            apply_highlight(readable_output, "")
             raw_output.insert(tk.END, str(e))
 
     send_btn = ttk.Button(request_frame, text="Send", command=send_cmd)
@@ -262,6 +310,9 @@ def main():
     )
     tk.Checkbutton(request_frame, text="Verify SSL", variable=verify_var).grid(
         row=6, column=1, sticky="w"
+    )
+    tk.Checkbutton(request_frame, text="Highlight JSON", variable=highlight_var).grid(
+        row=6, column=2, sticky="w"
     )
 
     root.mainloop()
