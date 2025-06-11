@@ -2,6 +2,7 @@ import argparse
 import json
 import socket
 import re
+import ast
 import requests
 from requests.exceptions import SSLError
 
@@ -31,6 +32,23 @@ class TeltonikaAPI:
 
     def _base_url(self) -> str:
         return f"{self.scheme}://{self.host}/api"
+
+    def _prepare_payload(self, data: str) -> tuple[str | None, dict | None]:
+        """Sanitize JSON text and return (raw_text, parsed_json)."""
+        text = data.strip()
+        if len(text) > 1 and text[0] == text[-1] and text[0] in "'\"":
+            text = text[1:-1]
+        text = re.sub(r",\s*([}\]])", r"\1", text)
+
+        for candidate in (text, text.replace("'", '"')):
+            try:
+                return None, json.loads(candidate)
+            except json.JSONDecodeError:
+                try:
+                    return None, ast.literal_eval(candidate)
+                except Exception:
+                    pass
+        return text, None
 
     def login(self) -> None:
         if not self._check_host():
@@ -69,17 +87,8 @@ class TeltonikaAPI:
         json_payload = None
         text = None
         if data:
-            text = data.strip()
-            if len(text) > 1 and text[0] == text[-1] and text[0] in "'\"":
-                text = text[1:-1]
-            text = re.sub(r",\s*([}\]])", r"\1", text)
-            for candidate in (text, text.replace("'", '"')):
-                try:
-                    json_payload = json.loads(candidate)
-                    break
-                except json.JSONDecodeError:
-                    continue
-            else:
+            text, json_payload = self._prepare_payload(data)
+            if json_payload is None:
                 headers.setdefault("Content-Type", "application/json")
         if json_payload is not None:
             response = self.session.request(
