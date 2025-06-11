@@ -92,10 +92,17 @@ def main():
 
     root = tk.Tk()
     root.title("Teltonika API Client")
+    root.geometry("800x600")
+    root.minsize(600, 400)
+    root.resizable(True, True)
+    root.columnconfigure(1, weight=1)
+    root.rowconfigure(5, weight=1)
+    root.rowconfigure(6, weight=1)
+    root.rowconfigure(7, weight=1)
 
     tk.Label(root, text="IP address:").grid(row=0, column=0, sticky="e")
     host_var = tk.StringVar(value="192.168.1.1")
-    tk.Entry(root, textvariable=host_var, width=20).grid(row=0, column=1)
+    tk.Entry(root, textvariable=host_var, width=20).grid(row=0, column=1, sticky="ew", padx=(0,5))
     https_var = tk.BooleanVar(value=False)
     tk.Checkbutton(root, text="HTTPS", variable=https_var).grid(row=0, column=2, padx=5)
     verify_var = tk.BooleanVar(value=True)
@@ -103,32 +110,32 @@ def main():
 
     tk.Label(root, text="Username:").grid(row=1, column=0, sticky="e")
     user_var = tk.StringVar(value="admin")
-    tk.Entry(root, textvariable=user_var, width=20).grid(row=1, column=1)
+    tk.Entry(root, textvariable=user_var, width=20).grid(row=1, column=1, sticky="ew", padx=(0,5))
 
     tk.Label(root, text="Password:").grid(row=2, column=0, sticky="e")
     pass_var = tk.StringVar(value="admin")
-    tk.Entry(root, textvariable=pass_var, show="*", width=20).grid(row=2, column=1)
+    tk.Entry(root, textvariable=pass_var, show="*", width=20).grid(row=2, column=1, sticky="ew", padx=(0,5))
 
     tk.Label(root, text="Method:").grid(row=3, column=0, sticky="e")
     method_var = tk.StringVar(value="GET")
     method_combo = ttk.Combobox(root, textvariable=method_var, values=["GET", "POST", "PUT", "DELETE"], width=17)
-    method_combo.grid(row=3, column=1)
+    method_combo.grid(row=3, column=1, sticky="w")
 
     tk.Label(root, text="Path:").grid(row=4, column=0, sticky="e")
     path_var = tk.StringVar(value="/")
-    tk.Entry(root, textvariable=path_var, width=20).grid(row=4, column=1)
+    tk.Entry(root, textvariable=path_var, width=20).grid(row=4, column=1, sticky="ew", padx=(0,5))
 
     tk.Label(root, text="Payload (JSON for POST/PUT):").grid(row=5, column=0, sticky="ne")
     payload_text = scrolledtext.ScrolledText(root, width=40, height=5)
-    payload_text.grid(row=5, column=1)
+    payload_text.grid(row=5, column=1, sticky="nsew", padx=(0,5))
 
     tk.Label(root, text="Raw response:").grid(row=6, column=0, sticky="nw")
     raw_output = scrolledtext.ScrolledText(root, width=60, height=10)
-    raw_output.grid(row=6, column=1, padx=5, pady=5)
+    raw_output.grid(row=6, column=1, padx=5, pady=5, sticky="nsew")
 
     tk.Label(root, text="Readable response:").grid(row=7, column=0, sticky="nw")
     readable_output = scrolledtext.ScrolledText(root, width=60, height=10)
-    readable_output.grid(row=7, column=1, padx=5, pady=5)
+    readable_output.grid(row=7, column=1, padx=5, pady=5, sticky="nsew")
 
     def login_cmd():
         session.login(
@@ -166,7 +173,7 @@ def main():
             raw_output.insert(tk.END, str(e))
 
     ttk.Button(root, text="Login", command=login_cmd).grid(row=8, column=0, pady=5)
-    ttk.Button(root, text="Send", command=send_cmd).grid(row=8, column=1, pady=5)
+    ttk.Button(root, text="Send", command=send_cmd).grid(row=8, column=1, pady=5, sticky="w")
 
     root.mainloop()
 
