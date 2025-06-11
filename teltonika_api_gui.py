@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 import json
+import socket
 import requests
 
 
@@ -9,9 +10,23 @@ class ApiSession:
         self.token = None
         self.verify_ssl = True
 
+    def _check_host(self, host: str, use_https: bool) -> bool:
+        port = 443 if use_https else 80
+        try:
+            with socket.create_connection((host, port), timeout=5):
+                return True
+        except OSError:
+            return False
+
     def login(self, host, username, password, use_https, verify_ssl, raw_out, readable_out):
         scheme = "https" if use_https else "http"
         self.verify_ssl = verify_ssl
+        if not self._check_host(host, use_https):
+            raw_out.delete(1.0, tk.END)
+            readable_out.delete(1.0, tk.END)
+            raw_out.insert(tk.END, f"Host {host} is unreachable")
+            self.token = None
+            return
         try:
             resp = requests.post(
                 f"{scheme}://{host.rstrip('/')}/api/login",

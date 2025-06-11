@@ -1,5 +1,6 @@
 import argparse
 import json
+import socket
 import requests
 from requests.exceptions import SSLError
 
@@ -18,10 +19,21 @@ class TeltonikaAPI:
         self.session.verify = verify_ssl
         self.token: str | None = None
 
+    def _check_host(self) -> bool:
+        """Return True if host is reachable on the expected port."""
+        port = 443 if self.scheme == "https" else 80
+        try:
+            with socket.create_connection((self.host, port), timeout=self.timeout):
+                return True
+        except OSError:
+            return False
+
     def _base_url(self) -> str:
         return f"{self.scheme}://{self.host}/api"
 
     def login(self) -> None:
+        if not self._check_host():
+            raise RuntimeError(f"Host {self.host} is unreachable")
         url = f"{self._base_url()}/login"
         try:
             resp = self.session.post(
