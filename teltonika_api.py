@@ -68,31 +68,40 @@ class TeltonikaAPI:
         headers = {"Authorization": f"Bearer {self.token}"}
         json_payload = None
         if data:
+            text = data.strip()
             if (
-                (data.startswith("'") and data.endswith("'"))
-                or (data.startswith('"') and data.endswith('"'))
+                (text.startswith("'") and text.endswith("'"))
+                or (text.startswith('"') and text.endswith('"'))
             ):
-                data = data[1:-1]
+                text = text[1:-1]
             try:
-                json_payload = json.loads(data)
+                json_payload = json.loads(text)
             except json.JSONDecodeError:
-                cleaned = re.sub(r",\s*([}\]])", r"\1", data)
+                cleaned = re.sub(r",\s*([}\]])", r"\1", text)
                 try:
                     json_payload = json.loads(cleaned)
                 except json.JSONDecodeError:
-                    cleaned = cleaned.replace("'", '"')
                     try:
-                        json_payload = json.loads(cleaned)
-                    except json.JSONDecodeError:
-                        json_payload = None
-                        headers.setdefault("Content-Type", "application/json")
+                        import ast
+
+                        json_payload = ast.literal_eval(cleaned)
+                        if not isinstance(json_payload, (dict, list)):
+                            raise ValueError
+                    except Exception:
+                        cleaned = cleaned.replace("'", '"')
+                        try:
+                            json_payload = json.loads(cleaned)
+                        except json.JSONDecodeError:
+                            json_payload = None
+                            text = cleaned
+                            headers.setdefault("Content-Type", "application/json")
         if json_payload is not None:
             response = self.session.request(
                 method.upper(), url, headers=headers, json=json_payload, timeout=self.timeout
             )
         else:
             response = self.session.request(
-                method.upper(), url, headers=headers, data=data, timeout=self.timeout
+                method.upper(), url, headers=headers, data=text, timeout=self.timeout
             )
         try:
             response.raise_for_status()
