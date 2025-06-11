@@ -68,6 +68,11 @@ class TeltonikaAPI:
         headers = {"Authorization": f"Bearer {self.token}"}
         json_payload = None
         if data:
+            if (
+                (data.startswith("'") and data.endswith("'"))
+                or (data.startswith('"') and data.endswith('"'))
+            ):
+                data = data[1:-1]
             try:
                 json_payload = json.loads(data)
             except json.JSONDecodeError:

@@ -54,6 +54,9 @@ python teltonika_api.py 192.168.1.1 admin admin GET /wireguard/config
 ```bash
 python teltonika_api.py 192.168.1.1 admin admin POST /wireguard/config --data '{"data": {"id": "example"}}'
 ```
+Если команда выполняется в Windows `cmd`, используйте двойные кавычки вокруг
+JSON или экранируйте одинарные. Клиент также удаляет внешние кавычки из
+переданной строки, чтобы избежать ошибки "No arguments provided" при отправке.
 
 При необходимости можно использовать HTTPS и отключить проверку сертификата:
 
