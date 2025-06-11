@@ -67,41 +67,27 @@ class TeltonikaAPI:
         url = f"{self._base_url()}/{path.lstrip('/')}"
         headers = {"Authorization": f"Bearer {self.token}"}
         json_payload = None
+        text = None
         if data:
             text = data.strip()
-            if (
-                (text.startswith("'") and text.endswith("'"))
-                or (text.startswith('"') and text.endswith('"'))
-            ):
+            if len(text) > 1 and text[0] == text[-1] and text[0] in "'\"":
                 text = text[1:-1]
-            try:
-                json_payload = json.loads(text)
-            except json.JSONDecodeError:
-                cleaned = re.sub(r",\s*([}\]])", r"\1", text)
+            text = re.sub(r",\s*([}\]])", r"\1", text)
+            for candidate in (text, text.replace("'", '"')):
                 try:
-                    json_payload = json.loads(cleaned)
+                    json_payload = json.loads(candidate)
+                    break
                 except json.JSONDecodeError:
-                    try:
-                        import ast
-
-                        json_payload = ast.literal_eval(cleaned)
-                        if not isinstance(json_payload, (dict, list)):
-                            raise ValueError
-                    except Exception:
-                        cleaned = cleaned.replace("'", '"')
-                        try:
-                            json_payload = json.loads(cleaned)
-                        except json.JSONDecodeError:
-                            json_payload = None
-                            text = cleaned
-                            headers.setdefault("Content-Type", "application/json")
+                    continue
+            else:
+                headers.setdefault("Content-Type", "application/json")
         if json_payload is not None:
             response = self.session.request(
                 method.upper(), url, headers=headers, json=json_payload, timeout=self.timeout
             )
         else:
             response = self.session.request(
-                method.upper(), url, headers=headers, data=text, timeout=self.timeout
+                method.upper(), url, headers=headers, data=text if text else None, timeout=self.timeout
             )
         try:
             response.raise_for_status()
