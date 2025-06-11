@@ -164,8 +164,8 @@ def main():
 
         for m in re.finditer(r'"(?:\\.|[^"\\])*"(?=\s*:)', text):
             widget.tag_add("key", idx(m.start()), idx(m.end()))
-        for m in re.finditer(r'(?<=:\s*)"(?:\\.|[^"\\])*"', text):
-            widget.tag_add("string", idx(m.start()), idx(m.end()))
+        for m in re.finditer(r':\s*("(?:\\.|[^"\\])*")', text):
+            widget.tag_add("string", idx(m.start(1)), idx(m.end(1)))
         for m in re.finditer(r'(?<![\w])(?:-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)', text):
             widget.tag_add("number", idx(m.start()), idx(m.end()))
         for m in re.finditer(r'\b(?:true|false|null)\b', text):
