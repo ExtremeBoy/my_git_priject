@@ -111,21 +111,33 @@ def main():
     root.rowconfigure(6, weight=1)
     root.rowconfigure(7, weight=1)
 
+    host_history = []
+    path_history = []
+
+    def update_history(history, value, combo, limit=5):
+        value = value.strip()
+        if not value:
+            return
+        if value in history:
+            history.remove(value)
+        history.insert(0, value)
+        del history[limit:]
+        combo['values'] = history
+
     tk.Label(root, text="IP address:").grid(row=0, column=0, sticky="e")
     host_var = tk.StringVar(value="192.168.1.1")
-    tk.Entry(root, textvariable=host_var, width=20).grid(row=0, column=1, sticky="ew", padx=(0,5))
-    https_var = tk.BooleanVar(value=False)
-    tk.Checkbutton(root, text="HTTPS", variable=https_var).grid(row=0, column=2, padx=5)
-    verify_var = tk.BooleanVar(value=True)
-    tk.Checkbutton(root, text="Verify SSL", variable=verify_var).grid(row=0, column=3, padx=5)
+    host_combo = ttk.Combobox(root, textvariable=host_var, values=host_history, width=20)
+    host_combo.grid(row=0, column=1, sticky="ew", padx=(0,5))
 
     tk.Label(root, text="Username:").grid(row=1, column=0, sticky="e")
     user_var = tk.StringVar(value="admin")
     tk.Entry(root, textvariable=user_var, width=20).grid(row=1, column=1, sticky="ew", padx=(0,5))
 
     tk.Label(root, text="Password:").grid(row=2, column=0, sticky="e")
-    pass_var = tk.StringVar(value="admin")
+    pass_var = tk.StringVar()
     tk.Entry(root, textvariable=pass_var, show="*", width=20).grid(row=2, column=1, sticky="ew", padx=(0,5))
+    login_btn = ttk.Button(root, text="Login", command=login_cmd)
+    login_btn.grid(row=2, column=2, padx=5, pady=5)
 
     tk.Label(root, text="Method:").grid(row=3, column=0, sticky="e")
     method_var = tk.StringVar(value="GET")
@@ -134,11 +146,15 @@ def main():
 
     tk.Label(root, text="Path:").grid(row=4, column=0, sticky="e")
     path_var = tk.StringVar(value="/")
-    tk.Entry(root, textvariable=path_var, width=20).grid(row=4, column=1, sticky="ew", padx=(0,5))
+    path_combo = ttk.Combobox(root, textvariable=path_var, values=path_history, width=20)
+    path_combo.grid(row=4, column=1, sticky="ew", padx=(0,5))
 
     tk.Label(root, text="Payload (JSON for POST/PUT):").grid(row=5, column=0, sticky="ne")
     payload_text = scrolledtext.ScrolledText(root, width=40, height=5)
     payload_text.grid(row=5, column=1, sticky="nsew", padx=(0,5))
+
+    https_var = tk.BooleanVar(value=False)
+    verify_var = tk.BooleanVar(value=True)
 
     tk.Label(root, text="Raw response:").grid(row=6, column=0, sticky="nw")
     raw_output = scrolledtext.ScrolledText(root, width=60, height=10)
@@ -159,6 +175,7 @@ def main():
             readable_output,
         )
         verify_var.set(session.verify_ssl)
+        update_history(host_history, host_var.get(), host_combo)
 
     def send_cmd():
         try:
@@ -170,6 +187,8 @@ def main():
                 payload_text.get(1.0, tk.END).strip(),
                 https_var.get(),
             )
+            update_history(host_history, host_var.get(), host_combo)
+            update_history(path_history, path_var.get(), path_combo)
             raw_output.delete(1.0, tk.END)
             readable_output.delete(1.0, tk.END)
             raw_output.insert(tk.END, resp.text)
@@ -183,8 +202,11 @@ def main():
             readable_output.delete(1.0, tk.END)
             raw_output.insert(tk.END, str(e))
 
-    ttk.Button(root, text="Login", command=login_cmd).grid(row=8, column=0, pady=5)
-    ttk.Button(root, text="Send", command=send_cmd).grid(row=8, column=1, pady=5, sticky="w")
+    send_btn = ttk.Button(root, text="Send", command=send_cmd)
+    send_btn.grid(row=8, column=1, pady=5, sticky="w")
+
+    tk.Checkbutton(root, text="HTTPS", variable=https_var).grid(row=9, column=0, padx=5, sticky="w")
+    tk.Checkbutton(root, text="Verify SSL", variable=verify_var).grid(row=9, column=1, sticky="w")
 
     root.mainloop()
 
