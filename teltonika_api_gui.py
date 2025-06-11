@@ -4,6 +4,7 @@ import json
 import socket
 import re
 import requests
+from pathlib import Path
 
 
 class ApiSession:
@@ -106,13 +107,30 @@ def main():
     root.geometry("800x600")
     root.minsize(600, 400)
     root.resizable(True, True)
-    root.columnconfigure(1, weight=1)
-    root.rowconfigure(5, weight=1)
-    root.rowconfigure(6, weight=1)
-    root.rowconfigure(7, weight=1)
+    root.columnconfigure(0, weight=1)
+    root.rowconfigure(1, weight=1)
 
-    host_history = []
-    path_history = []
+    host_history: list[str] = []
+    path_history: list[str] = []
+    history_file = Path("history.json")
+
+    def load_history():
+        if history_file.exists():
+            try:
+                data = json.loads(history_file.read_text(encoding="utf-8"))
+                host_history.extend(data.get("hosts", []))
+                path_history.extend(data.get("paths", []))
+            except Exception:
+                pass
+
+    def save_history():
+        try:
+            history_file.write_text(
+                json.dumps({"hosts": host_history, "paths": path_history}),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
 
     def update_history(history, value, combo, limit=5):
         value = value.strip()
@@ -122,45 +140,79 @@ def main():
             history.remove(value)
         history.insert(0, value)
         del history[limit:]
-        combo['values'] = history
+        combo["values"] = history
+        save_history()
 
-    tk.Label(root, text="IP address:").grid(row=0, column=0, sticky="e")
+    load_history()
+
+    login_frame = ttk.LabelFrame(root, text="Login")
+    login_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
+    login_frame.columnconfigure(1, weight=1)
+
+    tk.Label(login_frame, text="IP address:").grid(row=0, column=0, sticky="e")
     host_var = tk.StringVar(value="192.168.1.1")
-    host_combo = ttk.Combobox(root, textvariable=host_var, values=host_history, width=20)
-    host_combo.grid(row=0, column=1, sticky="ew", padx=(0,5))
+    host_combo = ttk.Combobox(
+        login_frame, textvariable=host_var, values=host_history, width=20
+    )
+    host_combo.grid(row=0, column=1, sticky="ew", padx=(0, 5))
 
-    tk.Label(root, text="Username:").grid(row=1, column=0, sticky="e")
+    tk.Label(login_frame, text="Username:").grid(row=1, column=0, sticky="e")
     user_var = tk.StringVar(value="admin")
-    tk.Entry(root, textvariable=user_var, width=20).grid(row=1, column=1, sticky="ew", padx=(0,5))
+    tk.Entry(login_frame, textvariable=user_var, width=20).grid(
+        row=1, column=1, sticky="ew", padx=(0, 5)
+    )
 
-    tk.Label(root, text="Password:").grid(row=2, column=0, sticky="e")
+    tk.Label(login_frame, text="Password:").grid(row=2, column=0, sticky="e")
     pass_var = tk.StringVar()
-    tk.Entry(root, textvariable=pass_var, show="*", width=20).grid(row=2, column=1, sticky="ew", padx=(0,5))
+    tk.Entry(login_frame, textvariable=pass_var, show="*", width=20).grid(
+        row=2, column=1, sticky="ew", padx=(0, 5)
+    )
 
-    tk.Label(root, text="Method:").grid(row=3, column=0, sticky="e")
+    login_btn = ttk.Button(login_frame, text="Login")
+    login_btn.grid(row=0, column=2, rowspan=3, padx=5, pady=5, sticky="ns")
+
+    request_frame = ttk.LabelFrame(root, text="Request")
+    request_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+    request_frame.columnconfigure(1, weight=1)
+    request_frame.rowconfigure(2, weight=1)
+    request_frame.rowconfigure(3, weight=1)
+    request_frame.rowconfigure(4, weight=1)
+
+    tk.Label(request_frame, text="Method:").grid(row=0, column=0, sticky="e")
     method_var = tk.StringVar(value="GET")
-    method_combo = ttk.Combobox(root, textvariable=method_var, values=["GET", "POST", "PUT", "DELETE"], width=17)
-    method_combo.grid(row=3, column=1, sticky="w")
+    method_combo = ttk.Combobox(
+        request_frame,
+        textvariable=method_var,
+        values=["GET", "POST", "PUT", "DELETE"],
+        width=17,
+    )
+    method_combo.grid(row=0, column=1, sticky="w")
 
-    tk.Label(root, text="Path:").grid(row=4, column=0, sticky="e")
+    tk.Label(request_frame, text="Path:").grid(row=1, column=0, sticky="e")
     path_var = tk.StringVar(value="/")
-    path_combo = ttk.Combobox(root, textvariable=path_var, values=path_history, width=20)
-    path_combo.grid(row=4, column=1, sticky="ew", padx=(0,5))
+    path_combo = ttk.Combobox(
+        request_frame, textvariable=path_var, values=path_history, width=20
+    )
+    path_combo.grid(row=1, column=1, sticky="ew", padx=(0, 5))
 
-    tk.Label(root, text="Payload (JSON for POST/PUT):").grid(row=5, column=0, sticky="ne")
-    payload_text = scrolledtext.ScrolledText(root, width=40, height=5)
-    payload_text.grid(row=5, column=1, sticky="nsew", padx=(0,5))
+    tk.Label(request_frame, text="Payload (JSON for POST/PUT):").grid(
+        row=2, column=0, sticky="ne"
+    )
+    payload_text = scrolledtext.ScrolledText(request_frame, width=40, height=5)
+    payload_text.grid(row=2, column=1, sticky="nsew", padx=(0, 5))
 
     https_var = tk.BooleanVar(value=False)
     verify_var = tk.BooleanVar(value=True)
 
-    tk.Label(root, text="Raw response:").grid(row=6, column=0, sticky="nw")
-    raw_output = scrolledtext.ScrolledText(root, width=60, height=10)
-    raw_output.grid(row=6, column=1, padx=5, pady=5, sticky="nsew")
+    tk.Label(request_frame, text="Raw response:").grid(row=3, column=0, sticky="nw")
+    raw_output = scrolledtext.ScrolledText(request_frame, width=60, height=10)
+    raw_output.grid(row=3, column=1, padx=5, pady=5, sticky="nsew")
 
-    tk.Label(root, text="Readable response:").grid(row=7, column=0, sticky="nw")
-    readable_output = scrolledtext.ScrolledText(root, width=60, height=10)
-    readable_output.grid(row=7, column=1, padx=5, pady=5, sticky="nsew")
+    tk.Label(request_frame, text="Readable response:").grid(
+        row=4, column=0, sticky="nw"
+    )
+    readable_output = scrolledtext.ScrolledText(request_frame, width=60, height=10)
+    readable_output.grid(row=4, column=1, padx=5, pady=5, sticky="nsew")
 
     def login_cmd():
         session.login(
@@ -175,8 +227,7 @@ def main():
         verify_var.set(session.verify_ssl)
         update_history(host_history, host_var.get(), host_combo)
 
-    login_btn = ttk.Button(root, text="Login", command=login_cmd)
-    login_btn.grid(row=2, column=2, padx=5, pady=5)
+    login_btn.configure(command=login_cmd)
 
     def send_cmd():
         try:
@@ -203,11 +254,15 @@ def main():
             readable_output.delete(1.0, tk.END)
             raw_output.insert(tk.END, str(e))
 
-    send_btn = ttk.Button(root, text="Send", command=send_cmd)
-    send_btn.grid(row=8, column=1, pady=5, sticky="w")
+    send_btn = ttk.Button(request_frame, text="Send", command=send_cmd)
+    send_btn.grid(row=5, column=1, pady=5, sticky="w")
 
-    tk.Checkbutton(root, text="HTTPS", variable=https_var).grid(row=9, column=0, padx=5, sticky="w")
-    tk.Checkbutton(root, text="Verify SSL", variable=verify_var).grid(row=9, column=1, sticky="w")
+    tk.Checkbutton(request_frame, text="HTTPS", variable=https_var).grid(
+        row=6, column=0, padx=5, sticky="w"
+    )
+    tk.Checkbutton(request_frame, text="Verify SSL", variable=verify_var).grid(
+        row=6, column=1, sticky="w"
+    )
 
     root.mainloop()
 
