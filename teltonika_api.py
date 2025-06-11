@@ -75,13 +75,24 @@ class TeltonikaAPI:
                 try:
                     json_payload = json.loads(cleaned)
                 except json.JSONDecodeError:
-                    json_payload = None
-                    headers.setdefault("Content-Type", "application/json")
+                    cleaned = cleaned.replace("'", '"')
+                    try:
+                        json_payload = json.loads(cleaned)
+                    except json.JSONDecodeError:
+                        json_payload = None
+                        headers.setdefault("Content-Type", "application/json")
         if json_payload is not None:
-            response = self.session.request(method.upper(), url, headers=headers, json=json_payload, timeout=self.timeout)
+            response = self.session.request(
+                method.upper(), url, headers=headers, json=json_payload, timeout=self.timeout
+            )
         else:
-            response = self.session.request(method.upper(), url, headers=headers, data=data, timeout=self.timeout)
-        response.raise_for_status()
+            response = self.session.request(
+                method.upper(), url, headers=headers, data=data, timeout=self.timeout
+            )
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as e:
+            raise requests.HTTPError(f"{e}\n{response.text}") from None
         return response
 
 

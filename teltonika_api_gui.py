@@ -77,13 +77,24 @@ class ApiSession:
                 try:
                     json_payload = json.loads(cleaned)
                 except json.JSONDecodeError:
-                    headers.setdefault("Content-Type", "application/json")
-                    json_payload = None
+                    cleaned = cleaned.replace("'", '"')
+                    try:
+                        json_payload = json.loads(cleaned)
+                    except json.JSONDecodeError:
+                        headers.setdefault("Content-Type", "application/json")
+                        json_payload = None
         if json_payload is not None:
-            response = requests.request(method, url, headers=headers, json=json_payload, timeout=5, verify=self.verify_ssl)
+            response = requests.request(
+                method, url, headers=headers, json=json_payload, timeout=5, verify=self.verify_ssl
+            )
         else:
-            response = requests.request(method, url, headers=headers, data=payload, timeout=5, verify=self.verify_ssl)
-        response.raise_for_status()
+            response = requests.request(
+                method, url, headers=headers, data=payload, timeout=5, verify=self.verify_ssl
+            )
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as e:
+            raise requests.HTTPError(f"{e}\n{response.text}") from None
         return response
 
 
