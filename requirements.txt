@@ -1,2 +1,5 @@
 scapy
 requests
+flask
+flask_sqlalchemy
+paramiko

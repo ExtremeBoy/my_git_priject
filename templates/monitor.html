@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Monitoring {{ router.name }}</h2>
+<canvas id="chart" width="400" height="100"></canvas>
+<script>
+async function fetchMetrics(){
+  let resp = await fetch('{{ url_for('metrics', router_id=router.id) }}');
+  return await resp.json();
+}
+let chart = new Chart(document.getElementById('chart'), {
+  type: 'line',
+  data: { labels: [], datasets: [{ label: 'Load Avg', data: [] }] }
+});
+setInterval(async () => {
+  let data = await fetchMetrics();
+  if(data.loadavg){
+    let val = parseFloat(data.loadavg.split(' ')[0]);
+    chart.data.labels.push('');
+    chart.data.datasets[0].data.push(val);
+    if(chart.data.labels.length > 20){
+      chart.data.labels.shift();
+      chart.data.datasets[0].data.shift();
+    }
+    chart.update();
+  }
+}, 5000);
+</script>
+{% endblock %}
