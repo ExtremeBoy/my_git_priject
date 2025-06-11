@@ -1,6 +1,7 @@
 import argparse
 import json
 import socket
+import re
 import requests
 from requests.exceptions import SSLError
 
@@ -65,11 +66,21 @@ class TeltonikaAPI:
             self.login()
         url = f"{self._base_url()}/{path.lstrip('/')}"
         headers = {"Authorization": f"Bearer {self.token}"}
+        json_payload = None
         if data:
-            payload = json.loads(data)
+            try:
+                json_payload = json.loads(data)
+            except json.JSONDecodeError:
+                cleaned = re.sub(r",\s*([}\]])", r"\1", data)
+                try:
+                    json_payload = json.loads(cleaned)
+                except json.JSONDecodeError:
+                    json_payload = None
+                    headers.setdefault("Content-Type", "application/json")
+        if json_payload is not None:
+            response = self.session.request(method.upper(), url, headers=headers, json=json_payload, timeout=self.timeout)
         else:
-            payload = None
-        response = self.session.request(method.upper(), url, headers=headers, json=payload, timeout=self.timeout)
+            response = self.session.request(method.upper(), url, headers=headers, data=data, timeout=self.timeout)
         response.raise_for_status()
         return response
 

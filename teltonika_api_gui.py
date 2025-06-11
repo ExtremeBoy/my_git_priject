@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext
 import json
 import socket
+import re
 import requests
 
 
@@ -67,8 +68,21 @@ class ApiSession:
         scheme = "https" if use_https else "http"
         url = f"{scheme}://{host.rstrip('/')}/api/{path.lstrip('/')}"
         headers = {"Authorization": f"Bearer {self.token}"}
-        data = json.loads(payload) if payload else None
-        response = requests.request(method, url, headers=headers, json=data, timeout=5, verify=self.verify_ssl)
+        json_payload = None
+        if payload:
+            try:
+                json_payload = json.loads(payload)
+            except json.JSONDecodeError:
+                cleaned = re.sub(r",\s*([}\]])", r"\1", payload)
+                try:
+                    json_payload = json.loads(cleaned)
+                except json.JSONDecodeError:
+                    headers.setdefault("Content-Type", "application/json")
+                    json_payload = None
+        if json_payload is not None:
+            response = requests.request(method, url, headers=headers, json=json_payload, timeout=5, verify=self.verify_ssl)
+        else:
+            response = requests.request(method, url, headers=headers, data=payload, timeout=5, verify=self.verify_ssl)
         response.raise_for_status()
         return response
 
