@@ -126,6 +126,7 @@ def main():
             raw_output,
             readable_output,
         )
+        verify_var.set(session.verify_ssl)
 
     def send_cmd():
         try:
