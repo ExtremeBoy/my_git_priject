@@ -7,16 +7,32 @@ import requests
 class ApiSession:
     def __init__(self):
         self.token = None
+        self.verify_ssl = True
 
     def login(self, host, username, password, use_https, verify_ssl, raw_out, readable_out):
         scheme = "https" if use_https else "http"
+        self.verify_ssl = verify_ssl
         try:
             resp = requests.post(
                 f"{scheme}://{host.rstrip('/')}/api/login",
                 json={"username": username, "password": password},
                 timeout=5,
-                verify=verify_ssl,
+                verify=self.verify_ssl,
             )
+        except requests.exceptions.SSLError:
+            if self.verify_ssl:
+                raw_out.delete(1.0, tk.END)
+                raw_out.insert(tk.END, "SSL verification failed, retrying without verification...\n")
+                resp = requests.post(
+                    f"{scheme}://{host.rstrip('/')}/api/login",
+                    json={"username": username, "password": password},
+                    timeout=5,
+                    verify=False,
+                )
+                self.verify_ssl = False
+            else:
+                raise
+        try:
             resp.raise_for_status()
             self.token = resp.json().get("data", {}).get("token")
             if not self.token:
@@ -30,14 +46,14 @@ class ApiSession:
             readable_out.delete(1.0, tk.END)
             raw_out.insert(tk.END, str(e))
 
-    def request(self, host, method, path, payload, use_https, verify_ssl):
+    def request(self, host, method, path, payload, use_https):
         if not self.token:
             raise RuntimeError("Not authenticated")
         scheme = "https" if use_https else "http"
         url = f"{scheme}://{host.rstrip('/')}/api/{path.lstrip('/')}"
         headers = {"Authorization": f"Bearer {self.token}"}
         data = json.loads(payload) if payload else None
-        response = requests.request(method, url, headers=headers, json=data, timeout=5, verify=verify_ssl)
+        response = requests.request(method, url, headers=headers, json=data, timeout=5, verify=self.verify_ssl)
         response.raise_for_status()
         return response
 
@@ -98,13 +114,13 @@ def main():
 
     def send_cmd():
         try:
+            session.verify_ssl = verify_var.get()
             resp = session.request(
                 host_var.get(),
                 method_var.get(),
                 path_var.get(),
                 payload_text.get(1.0, tk.END).strip(),
                 https_var.get(),
-                verify_var.get(),
             )
             raw_output.delete(1.0, tk.END)
             readable_output.delete(1.0, tk.END)

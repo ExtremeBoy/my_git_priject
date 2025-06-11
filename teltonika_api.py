@@ -1,6 +1,7 @@
 import argparse
 import json
 import requests
+from requests.exceptions import SSLError
 
 
 class TeltonikaAPI:
@@ -22,7 +23,25 @@ class TeltonikaAPI:
 
     def login(self) -> None:
         url = f"{self._base_url()}/login"
-        resp = self.session.post(url, json={"username": self.username, "password": self.password}, timeout=self.timeout)
+        try:
+            resp = self.session.post(
+                url,
+                json={"username": self.username, "password": self.password},
+                timeout=self.timeout,
+                verify=self.verify_ssl,
+            )
+        except SSLError:
+            if self.verify_ssl:
+                resp = self.session.post(
+                    url,
+                    json={"username": self.username, "password": self.password},
+                    timeout=self.timeout,
+                    verify=False,
+                )
+                self.verify_ssl = False
+                self.session.verify = False
+            else:
+                raise
         resp.raise_for_status()
         data = resp.json()
         self.token = data.get("data", {}).get("token")
