@@ -148,10 +148,11 @@ def main():
     def apply_highlight(widget: tk.Text, text: str) -> None:
         widget.delete(1.0, tk.END)
         widget.insert(tk.END, text)
-        for tag in ("string", "number", "bool"):
+        for tag in ("key", "string", "number", "bool"):
             widget.tag_remove(tag, "1.0", tk.END)
         if not highlight_var.get():
             return
+        widget.tag_config("key", foreground="brown")
         widget.tag_config("string", foreground="darkgreen")
         widget.tag_config("number", foreground="blue")
         widget.tag_config("bool", foreground="purple")
@@ -161,7 +162,9 @@ def main():
             col = pos - text.rfind("\n", 0, pos) - 1
             return f"{line}.{col}"
 
-        for m in re.finditer(r'"(\\.|[^"\\])*"', text):
+        for m in re.finditer(r'"(?:\\.|[^"\\])*"(?=\s*:)', text):
+            widget.tag_add("key", idx(m.start()), idx(m.end()))
+        for m in re.finditer(r'(?<=:\s*)"(?:\\.|[^"\\])*"', text):
             widget.tag_add("string", idx(m.start()), idx(m.end()))
         for m in re.finditer(r'(?<![\w])(?:-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?)', text):
             widget.tag_add("number", idx(m.start()), idx(m.end()))
@@ -311,9 +314,15 @@ def main():
     tk.Checkbutton(request_frame, text="Verify SSL", variable=verify_var).grid(
         row=6, column=1, sticky="w"
     )
-    tk.Checkbutton(request_frame, text="Highlight JSON", variable=highlight_var).grid(
-        row=6, column=2, sticky="w"
-    )
+    def toggle_highlight():
+        apply_highlight(readable_output, readable_output.get(1.0, tk.END))
+
+    tk.Checkbutton(
+        request_frame,
+        text="Highlight JSON",
+        variable=highlight_var,
+        command=toggle_highlight,
+    ).grid(row=6, column=2, sticky="w")
 
     root.mainloop()
 
