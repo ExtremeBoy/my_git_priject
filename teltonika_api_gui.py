@@ -136,8 +136,6 @@ def main():
     tk.Label(root, text="Password:").grid(row=2, column=0, sticky="e")
     pass_var = tk.StringVar()
     tk.Entry(root, textvariable=pass_var, show="*", width=20).grid(row=2, column=1, sticky="ew", padx=(0,5))
-    login_btn = ttk.Button(root, text="Login", command=login_cmd)
-    login_btn.grid(row=2, column=2, padx=5, pady=5)
 
     tk.Label(root, text="Method:").grid(row=3, column=0, sticky="e")
     method_var = tk.StringVar(value="GET")
@@ -176,6 +174,9 @@ def main():
         )
         verify_var.set(session.verify_ssl)
         update_history(host_history, host_var.get(), host_combo)
+
+    login_btn = ttk.Button(root, text="Login", command=login_cmd)
+    login_btn.grid(row=2, column=2, padx=5, pady=5)
 
     def send_cmd():
         try:
