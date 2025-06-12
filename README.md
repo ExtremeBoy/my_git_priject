@@ -18,22 +18,22 @@ pip install -r requirements.txt
 ## Teltonika API Client
 
 `teltonika_api.py` — это небольшая утилита командной строки для отправки
-`ubus`-запросов к роутерам Teltonika. Все обращения к устройству выполняются
+`API`-запросов к роутерам Teltonika. Все обращения к устройству выполняются
 по HTTPS. Скрипт сначала выполняет вход, затем отправляет произвольный метод и
 выводит **сырое** содержимое ответов от устройства.
 
 Запуск осуществляется так:
 
 ```bash
-python teltonika_api.py <host> <user> <pass> <object> <method> '<params>'
+python teltonika_api.py [-h] [--data DATA] [--https] [--no-verify] host user pass {GET,POST,PUT,DELETE} path
 ```
 
 Аргументы:
 
 - `host` – IP-адрес или имя роутера;
 - `user` и `pass` – учётные данные;
-- `object`/`method` – имя объекта и метода `ubus`;
-- `params` – строка с JSON-параметрами (например `"{}"`, если параметров нет).
+- `method` – метод указнный в официальном API;
+- `path` – путь к API параметру взятый из API (напрмимер '/io/status').
 - `--verify-ssl` – проверять SSL-сертификат устройства (по умолчанию
   отключено, так как на роутерах обычно используется самоподписанный
   сертификат).
@@ -41,22 +41,7 @@ python teltonika_api.py <host> <user> <pass> <object> <method> '<params>'
 Пример запроса статуса сетевого интерфейса:
 
 ```bash
-python teltonika_api.py 192.168.1.1 admin admin network.interface status "{}"
-```
-
-После выполнения будут напечатаны диагностические сообщения и
-необработанный JSON-ответ роутера. Типичный вывод выглядит так:
-
-```
-Connecting to 192.168.1.1 via HTTPS as 'admin'...
-Login HTTP 200
-Raw login response:
-{"jsonrpc":"2.0","id":1,"result":[0,{"ubus_rpc_session":"..."}]}
-Session token obtained
-Sending command: object='network.interface', method='status', params={}
-Command HTTP 200
-Raw command response:
-{"jsonrpc":"2.0","id":1,"result":[0,{...}]}
+python teltonika_api.py 192.168.50.150 admin Admin01 GET /io/status
 ```
 
 ## Web UI Router Manager
